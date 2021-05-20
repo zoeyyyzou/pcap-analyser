@@ -22,87 +22,112 @@ def getEngine():
     return engine
 
 
-def dealPcapFile(inputFile: str, progressCallback):
-    """
-    解析 pcap 文件，提取特征
-    :param inputFile:
-    :return:
-    """
-    f = open(inputFile, "rb")
-    totalSize = os.path.getsize(inputFile)
-    pcap = dpkt.pcap.Reader(f)
+class PcapAnalyser:
+    def __init__(self):
+        self.session = None
+        self.report = None
 
-    # 获取数据库session
-    engine = getEngine()
-    DBSession = sessionmaker(bind=engine)
-    session = DBSession()
+    def dealICMPValue(self, value: dict):
+        """
+        处理 ICMP 包的解析结果
+        :param value:
+        :return:
+        """
+        pass
 
-    # 将对比的特征生成报告
-    report = Report(title=f"{f.name} report", description="",
-                    total_domain_num=0,
-                    total_packet_num=0,
-                    total_flow_num=0)
+    def dealDNSValue(self, value: dict):
+        """
+        处理提取到的 DNS 记录
+        :param value:
+        :return:
+        """
+        # 提取到DNS记录
+        dr = DomainRecord(**value)
+        self.report.total_domain_num += 1
+        # 检索数据库，如果有想关联的 Observable，就存到report当中，如果没有，则忽略
+        observables = self.session.query(Domain). \
+            filter(Domain.value == dr.domain). \
+            all()
+        if len(observables) > 0:
+            dr.observables = observables
+            self.report.domain_records.append(dr)
 
-    extractors = [FlowExtractor("flow.csv"), ICMPExtractor("icmp.csv")]
-    dnsExtractor = DNSExtractor()
-    startTime = None
-    for ts, buf in pcap:
-        progressCallback(f.tell() * 100 / totalSize)
-        # print(f.tell())
-        if not startTime:
-            startTime = ts
-            report.start_time = datetime.fromtimestamp(startTime)
-            report.end_time = report.start_time
-        report.total_packet_num += 1
-        ethPacket = dpkt.ethernet.Ethernet(buf)
-        for extractor in extractors:
-            extractor.addPacket(ethPacket, ts)
-
-        # DNS
-        res = dnsExtractor.getValue(ethPacket, ts)
-        if len(res) > 0:
-            # 提取到DNS记录
-            dr = DomainRecord(**DNSRecord(res).toDomainRecord())
-            report.total_domain_num += 1
-            # 检索数据库，如果有想关联的 Observable，就存到report当中，如果没有，则忽略
-            observables = session.query(Domain). \
-                filter(Domain.value == dr.domain). \
-                all()
-            if len(observables) > 0:
-                dr.observables = observables
-                report.domain_records.append(dr)
-
-    for extractor in extractors:
-        extractor.done()
-
-    # 填充 FlowRecord
-    flowExtractor = extractors[0]
-    for key in flowExtractor.flowMap:
-        flow = flowExtractor.flowMap[key]
-        record = FlowRecord(**flow.toFlowRecord())
-        report.total_flow_num += 1
+    def dealFlowValue(self, value: dict):
+        # 填充 FlowRecord
+        record = FlowRecord(**value)
+        self.report.total_flow_num += 1
         # 检索数据库，如果有相关联的 Observable，就存到report当中，如果没有，则忽略
-        observables = session.query(Address). \
-            filter(or_(Address.value == flow.srcIP, Address.value == flow.dstIP)). \
+        observables = self.session.query(Address). \
+            filter(or_(Address.value == value['src_ip'], Address.value == value['dst_ip'])). \
             all()
         # 如果没有相关联的 Observable，则忽略掉
         if len(observables) <= 0:
-            continue
+            return
 
         record.observables = observables
-        report.flow_records.append(record)
+        self.report.flow_records.append(record)
         # if flow.lastTime > report.end_time:
         #     report.end_time = flow.lastTime
-    session.add(report)
-    session.commit()
 
-    # output report
-    outputStr = f"Report title: {report.title}"
-    outputStr += f"\ntotal_packet_num: {report.total_packet_num}"
-    outputStr += f"\ntotal_flow_num: {report.total_flow_num} / match_flow_num: {len(report.flow_records)}"
-    outputStr += f"\ntotal_domain_num: {report.total_domain_num} / match_domain_num: {len(report.domain_records)}"
-    session.close()
-    return outputStr
+    def dealPcapFile(self, inputFile: str, progressCallback):
+        """
+            解析 pcap 文件，提取特征
+            :param inputFile:
+            :return:
+            """
+        f = open(inputFile, "rb")
+        totalSize = os.path.getsize(inputFile)
+        pcap = dpkt.pcap.Reader(f)
+
+        # 获取数据库session
+        engine = getEngine()
+        DBSession = sessionmaker(bind=engine)
+        self.session = DBSession()
+
+        # 将对比的特征生成报告
+        self.report = Report(title=f"{f.name} report", description="",
+                             total_domain_num=0,
+                             total_packet_num=0,
+                             total_flow_num=0)
+
+        extractors = [
+            FlowExtractor(self.dealFlowValue),
+            ICMPExtractor(self.dealICMPValue),
+            DNSExtractor(self.dealDNSValue),
+        ]
+        startTime = None
+        preProgress = 0
+        progressCallback(preProgress)
+        for ts, buf in pcap:
+            currentProgress = int(f.tell() * 100 / totalSize)
+            if currentProgress != preProgress:
+                progressCallback(currentProgress)
+                preProgress = currentProgress
+            if not startTime:
+                startTime = ts
+                self.report.start_time = datetime.fromtimestamp(startTime)
+                self.report.end_time = self.report.start_time
+            self.report.total_packet_num += 1
+
+            ethPacket = dpkt.ethernet.Ethernet(buf)
+            for extractor in extractors:
+                extractor.addPacket(ethPacket, ts)
+
+        for extractor in extractors:
+            extractor.done()
+
+        self.session.add(self.report)
+        self.session.commit()
+
+        # output report
+        outputStr = f"Report title: {self.report.title}"
+        outputStr += f"\ntotal_packet_num: {self.report.total_packet_num}"
+        outputStr += f"\ntotal_flow_num: {self.report.total_flow_num} / match_flow_num: {len(self.report.flow_records)}"
+        outputStr += f"\ntotal_domain_num: {self.report.total_domain_num} / match_domain_num: {len(self.report.domain_records)}"
+        self.session.close()
+        self.session = None
+        self.report = None
+        return outputStr
 
 
 if __name__ == '__main__':
@@ -119,14 +144,18 @@ if __name__ == '__main__':
     inputPcapPath = window["inputPcapPath"]
     progressBar = window["analyse-progress"]
 
+    pcapAnalyser = PcapAnalyser()
     while True:
         event, values = window.read()
         if event == sg.WIN_CLOSED or event == 'Cancel':  # if user closes window or clicks cancel
             break
         elif event == "analyse":
             path = values["inputPcapPath"]
-            # text = sg.popup_get_file("Please select a pcap file", no_window=True)
-            res = dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
-            sg.popup_ok(res)
+            if not os.path.exists(path):
+                sg.popup_error("File not exists!")
+            else:
+                # text = sg.popup_get_file("Please select a pcap file", no_window=True)
+                res = pcapAnalyser.dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
+                sg.popup_ok(res)
 
     window.close()

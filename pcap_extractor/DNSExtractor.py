@@ -27,22 +27,13 @@ class DNSRecord:
 
 class DNSExtractor(Extractor):
 
+    def __init__(self, valueCallback):
+        super().__init__(valueCallback)
+
     def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: int):
-        return self.getValue(ethPacket, timestamp)
-
-    def decodeDNSResponse(self, rr: dns.DNS.RR, timestamp: int):
-        if rr.type == dns.DNS_A:
-            # A 记录 => ipv4
-            return [rr.name, "A", inet_to_str(rr.rdata), timestamp]
-        elif rr.type == dns.DNS_AAAA:
-            # AAAA 记录 => ipv6
-            return [rr.name, "AAAA", inet_to_str(rr.rdata), timestamp]
-        return []
-
-    def getValue(self, ethPacket: ethernet.Ethernet, timestamp: int):
         # DNS 采用UDP通信，不是UDP包忽略
         if not (isinstance(ethPacket.data, ip.IP) and isinstance(ethPacket.data.data, udp.UDP)):
-            return []
+            return
         ipPacket = ethPacket.data
         udpPacket = ipPacket.data
         if udpPacket.sport == 53:
@@ -55,17 +46,21 @@ class DNSExtractor(Extractor):
                 pass
             for rr in dnsPacket.an:
                 # answer section
-                return self.decodeDNSResponse(rr, timestamp)
+                self.decodeDNSResponse(rr, timestamp)
             for rr in dnsPacket.ns:
                 # authority section
                 pass
             for rr in dnsPacket.ar:
                 # addition section
                 pass
-        return []
 
-    def getTitle(self):
-        return ["domain", "domain_type", "value", "timestamp"]
+    def decodeDNSResponse(self, rr: dns.DNS.RR, timestamp: int):
+        if rr.type == dns.DNS_A:
+            # A 记录 => ipv4
+            self.valueCallback(DNSRecord([rr.name, "A", inet_to_str(rr.rdata), timestamp]).toDomainRecord())
+        elif rr.type == dns.DNS_AAAA:
+            # AAAA 记录 => ipv6
+            self.valueCallback(DNSRecord([rr.name, "AAAA", inet_to_str(rr.rdata), timestamp]).toDomainRecord())
 
     def done(self):
         pass

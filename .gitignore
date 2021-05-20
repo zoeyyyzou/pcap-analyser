@@ -1,0 +1,6 @@
+# Project exclude paths
+/venv/
+build/
+dist/
+main.spec
+cctx.db

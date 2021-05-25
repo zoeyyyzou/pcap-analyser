@@ -118,44 +118,109 @@ class PcapAnalyser:
 
         self.session.add(self.report)
         self.session.commit()
-
-        # output report
-        outputStr = f"Report title: {self.report.title}"
-        outputStr += f"\ntotal_packet_num: {self.report.total_packet_num}"
-        outputStr += f"\ntotal_flow_num: {self.report.total_flow_num} / match_flow_num: {len(self.report.flow_records)}"
-        outputStr += f"\ntotal_domain_num: {self.report.total_domain_num} / match_domain_num: {len(self.report.domain_records)}"
+        reportId = self.report.id
+        self.session.refresh(self.report)
+        self.session.expunge(self.report)
         self.session.close()
         self.session = None
-        self.report = None
-        return outputStr
+        # report = None
+        return reportId
+
+
+def makeWindow1():
+    return sg.Window("Pcap Analyser", [
+        [sg.Text("Please enter a pcap file path")],
+        [sg.In(key="inputPcapPath", size=(30, 100)), sg.FileBrowse(key='selectPcapFileBrowse', target='inputPcapPath')],
+        [sg.ProgressBar(100, orientation='h', size=(28, 5), key="analyse-progress")],
+        [sg.Button("analyse")],
+    ], finalize=True)
+
+
+def makeReportTableWindow(report: Report):
+    matchFlowValues = []
+    for flowRecord in report.flow_records:
+        matchFlowValues.append([flowRecord.src_ip, flowRecord.dst_ip, flowRecord.src_port, flowRecord.dst_port,
+                                flowRecord.type, flowRecord.protocol, flowRecord.src_packets, flowRecord.dst_packets])
+    matchDomains = []
+    for domainRecord in report.domain_records:
+        matchDomains.append([domainRecord.domain, domainRecord.domain_type, domainRecord.value])
+
+    outputStr = f"Report title: {report.title}"
+    outputStr += f"\ntotal_packet_num: {report.total_packet_num}"
+    outputStr += f"\ntotal_flow_num: {report.total_flow_num} / match_flow_num: {len(report.flow_records)}"
+    outputStr += f"\ntotal_domain_num: {report.total_domain_num} / match_domain_num: {len(report.domain_records)}\n\n"
+
+    layout = [
+        [sg.Text(outputStr)],
+        [sg.Text("Match flows:")],
+        [sg.Table(
+            values=matchFlowValues,
+            headings=["src_ip", "dst_ip", "src_port", "dst_port", "type", "protocol", "src_packets",
+                      "dst_packets"],
+            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+            display_row_numbers=True,  # 序号
+            justification='center',
+            font=('微软雅黑', 12),
+            text_color='black',
+            background_color='white',
+            enable_events=True,
+            bind_return_key=True,
+            tooltip='This is a table'
+        )],
+        [sg.Text("Match domains:")],
+        [sg.Table(
+            values=matchDomains,
+            headings=["domain", "type", "value"],
+            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+            display_row_numbers=True,  # 序号
+            justification='center',
+            font=('微软雅黑', 12),
+            text_color='black',
+            background_color='white',
+            enable_events=True,
+            bind_return_key=True,
+            tooltip='This is a table'
+        )]
+    ]
+    return sg.Window("Report", layout, finalize=True)
 
 
 if __name__ == '__main__':
     sg.theme("Light Green")
 
-    # create window
-    window = sg.Window("Pcap Analyser", [
-        [sg.Text("Please enter a pcap file path")],
-        [sg.In(key="inputPcapPath"), sg.FileBrowse(key='selectPcapFileBrowse', target='inputPcapPath')],
-        [sg.ProgressBar(100, key="analyse-progress")],
-        [sg.Button("analyse")],
-    ])
-
-    inputPcapPath = window["inputPcapPath"]
-    progressBar = window["analyse-progress"]
-
     pcapAnalyser = PcapAnalyser()
+    window1, window2 = makeWindow1(), None
+    inputPcapPath = window1["inputPcapPath"]
+    progressBar = window1["analyse-progress"]
     while True:
-        event, values = window.read()
-        if event == sg.WIN_CLOSED or event == 'Cancel':  # if user closes window or clicks cancel
-            break
-        elif event == "analyse":
-            path = values["inputPcapPath"]
-            if not os.path.exists(path):
-                sg.popup_error("File not exists!")
-            else:
-                # text = sg.popup_get_file("Please select a pcap file", no_window=True)
-                res = pcapAnalyser.dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
-                sg.popup_ok(res)
-
-    window.close()
+        window, event, values = sg.read_all_windows()
+        if window == window1:
+            # main window
+            if event == "analyse":
+                if window2 is not None:
+                    window2.close()
+                    window2 = None
+                # do analyse
+                path = values["inputPcapPath"]
+                if not os.path.exists(path):
+                    sg.popup_error("File not exists!")
+                else:
+                    # text = sg.popup_get_file("Please select a pcap file", no_window=True)
+                    reportId = pcapAnalyser.dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
+                    # 获取数据库session
+                    engine = getEngine()
+                    DBSession = sessionmaker(bind=engine)
+                    session = DBSession()
+                    report = session.query(Report, Report.id == reportId).first()[0]
+                    window2 = makeReportTableWindow(report)
+                    session.close()
+            elif event == sg.WIN_CLOSED:
+                break
+        elif window == window2:
+            # table window
+            if event == sg.WIN_CLOSED:
+                window2.close()
+                window2 = None
+    window1.close()
+    if window2 is not None:
+        window2.close()

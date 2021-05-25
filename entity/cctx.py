@@ -113,6 +113,11 @@ class FlowRecord(Base):
     observables = relationship("Address", secondary=flow_record_address)  # 关联的 CCTX Observables（一对多）
     report_id = Column(Integer, ForeignKey("report.id"))
 
+    def __repr__(self):
+        return f'FlowRecord(src_ip={self.src_ip}, dst_ip={self.dst_ip}, src_port={self.src_port}, ' \
+               f'dst_port={self.dst_port}, type={self.type}, protocol={self.protocol},' \
+               f'src_packets={self.src_packets}, dst_packets={self.dst_packets})'
+
 
 # DomainRecord 和 Domain 表的外键关联
 domain_record_domain = Table(
@@ -137,6 +142,9 @@ class DomainRecord(Base):
     # 关联
     observables = relationship("Domain", secondary=domain_record_domain)
     report_id = Column(Integer, ForeignKey("report.id"), nullable=False)
+
+    def __repr__(self):
+        return f"DomainRecord(domain={self.domain}, type={self.domain_type}, value={self.value})"
 
 
 def Initial(engine):

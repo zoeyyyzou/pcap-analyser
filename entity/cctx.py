@@ -20,6 +20,9 @@ class Address(Base):
     type = Column(Enum("ipv4-addr", "ipv6-addr"), server_default="ipv4-addr", nullable=False)  # 地址类型
     value = Column(String, default="", nullable=False)  # 地址
 
+    created_at = Column(DateTime, default=datetime.now)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
+
     @staticmethod
     def build(titles: [], values: []):
         mMap = {}
@@ -42,6 +45,9 @@ class Domain(Base):
     id = Column(Integer, primary_key=True)  # 主键
     stix_id = Column(String, default="", nullable=False, unique=True)  # CCIX 获取到的 STIX observable object id
     value = Column(String, default="", nullable=False)  # 域名
+
+    created_at = Column(DateTime, default=datetime.now)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
 
     @staticmethod
     def build(titles: [], values: []):

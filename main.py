@@ -4,6 +4,7 @@ import dpkt
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.DNSExtractor import DNSExtractor, DNSRecord
 from pcap_extractor.ICMPExtractor import ICMPExtractor
+from pcap_extractor.Flow import Flow
 from sqlalchemy import create_engine, text, or_
 from sqlalchemy.orm import sessionmaker
 from entity.cctx import Address, Domain, Initial, Report, DomainRecord, FlowRecord
@@ -52,7 +53,11 @@ class PcapAnalyser:
             dr.observables = observables
             self.report.domain_records.append(dr)
 
-    def dealFlowValue(self, value: dict):
+    def dealFlowValue(self, flow: Flow):
+        value = flow.toFlowRecord()
+        # 输出 URL
+        for http_req in flow.http_requests:
+            print(f"http://{http_req.headers['host']}{http_req.uri}")
         # 填充 FlowRecord
         record = FlowRecord(**value)
         self.report.total_flow_num += 1

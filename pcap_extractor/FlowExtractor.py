@@ -29,4 +29,4 @@ class FlowExtractor(Extractor):
     def done(self):
         for key in self.flowMap:
             flow = self.flowMap[key]
-            self.valueCallback(flow.toFlowRecord())
+            self.valueCallback(flow)

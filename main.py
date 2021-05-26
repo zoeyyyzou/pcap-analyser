@@ -118,13 +118,13 @@ class PcapAnalyser:
 
         self.session.add(self.report)
         self.session.commit()
-        reportId = self.report.id
+        print(f"title: {self.report.title} => {self.report.id}")
         self.session.refresh(self.report)
         self.session.expunge(self.report)
         self.session.close()
         self.session = None
-        # report = None
-        return reportId
+        print(f"title: {self.report.title} => {self.report.id}")
+        return self.report.id
 
 
 def makeWindow1():
@@ -149,39 +149,48 @@ def makeReportTableWindow(report: Report):
     outputStr += f"\ntotal_packet_num: {report.total_packet_num}"
     outputStr += f"\ntotal_flow_num: {report.total_flow_num} / match_flow_num: {len(report.flow_records)}"
     outputStr += f"\ntotal_domain_num: {report.total_domain_num} / match_domain_num: {len(report.domain_records)}\n\n"
-
     layout = [
-        [sg.Text(outputStr)],
-        [sg.Text("Match flows:")],
-        [sg.Table(
-            values=matchFlowValues,
-            headings=["src_ip", "dst_ip", "src_port", "dst_port", "type", "protocol", "src_packets",
-                      "dst_packets"],
-            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
-            display_row_numbers=True,  # 序号
-            justification='center',
-            font=('微软雅黑', 12),
-            text_color='black',
-            background_color='white',
-            enable_events=True,
-            bind_return_key=True,
-            tooltip='This is a table'
-        )],
-        [sg.Text("Match domains:")],
-        [sg.Table(
-            values=matchDomains,
-            headings=["domain", "type", "value"],
-            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
-            display_row_numbers=True,  # 序号
-            justification='center',
-            font=('微软雅黑', 12),
-            text_color='black',
-            background_color='white',
-            enable_events=True,
-            bind_return_key=True,
-            tooltip='This is a table'
-        )]
+        [sg.Text(outputStr, font=('微软雅黑', 12))],
     ]
+    if len(report.flow_records) > 0:
+        layout.append(
+            [sg.Text("Match flows:")],
+        )
+        layout.append(
+            [sg.Table(
+                values=matchFlowValues,
+                headings=["src_ip", "dst_ip", "src_port", "dst_port", "type", "protocol", "src_packets",
+                          "dst_packets"],
+                auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+                display_row_numbers=True,  # 序号
+                justification='center',
+                font=('微软雅黑', 12),
+                text_color='black',
+                background_color='white',
+                enable_events=True,
+                bind_return_key=True,
+                tooltip='This is a table'
+            )],
+        )
+    if len(report.domain_records) > 0:
+        layout.append(
+            [sg.Text("Match domains:")],
+        )
+        layout.append(
+            [sg.Table(
+                values=matchDomains,
+                headings=["domain", "type", "value"],
+                auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+                display_row_numbers=True,  # 序号
+                justification='center',
+                font=('微软雅黑', 12),
+                text_color='black',
+                background_color='white',
+                enable_events=True,
+                bind_return_key=True,
+                tooltip='This is a table'
+            )]
+        )
     return sg.Window("Report", layout, finalize=True)
 
 
@@ -207,12 +216,15 @@ if __name__ == '__main__':
                 else:
                     # text = sg.popup_get_file("Please select a pcap file", no_window=True)
                     reportId = pcapAnalyser.dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
+                    print(f"reportId = {reportId}")
                     # 获取数据库session
                     engine = getEngine()
                     DBSession = sessionmaker(bind=engine)
                     session = DBSession()
-                    report = session.query(Report, Report.id == reportId).first()[0]
+                    report = session.query(Report).filter(Report.id == reportId).first()
+                    print(report.title)
                     window2 = makeReportTableWindow(report)
+                    report = None
                     session.close()
             elif event == sg.WIN_CLOSED:
                 break

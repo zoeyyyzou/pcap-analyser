@@ -30,7 +30,7 @@ class DNSExtractor(Extractor):
     def __init__(self, valueCallback):
         super().__init__(valueCallback)
 
-    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: int):
+    def addPacket(self, packetNumber: int, ethPacket: ethernet.Ethernet, timestamp: float):
         # DNS 采用UDP通信，不是UDP包忽略
         if not (isinstance(ethPacket.data, ip.IP) and isinstance(ethPacket.data.data, udp.UDP)):
             return

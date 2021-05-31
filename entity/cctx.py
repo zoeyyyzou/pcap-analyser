@@ -61,6 +61,21 @@ class Domain(Base):
         return domain
 
 
+class FileHash(Base):
+    """
+    文件Hash表，用来存储文件的Hash值
+    """
+    __tablename__ = "file_hash"
+    id = Column(Integer, primary_key=True)  # 主键
+    stix_id = Column(String, default="", nullable=False, unique=True)  # CCIX 获取到的 STIX observable object id
+    md5 = Column(String, default="", nullable=True)  # md5
+    sha1 = Column(String, default="", nullable=True)  # sha1
+    sha256 = Column(String, default="", nullable=True)  # sha256
+
+    created_at = Column(DateTime, default=datetime.now)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
+
+
 #######################################################################################
 # Report
 #######################################################################################
@@ -139,6 +154,7 @@ class DomainRecord(Base):
     """
 
     __tablename__ = "domain_record"
+
     id = Column(Integer, primary_key=True)  # 主键
     domain = Column(String, nullable=False)  # 域名
     domain_type = Column(String, default="A")  # 记录类型
@@ -151,6 +167,33 @@ class DomainRecord(Base):
 
     def __repr__(self):
         return f"DomainRecord(domain={self.domain}, type={self.domain_type}, value={self.value})"
+
+
+file_hash_record_file_hash = Table(
+    "file_hash_record_file_hash", Base.metadata,
+    Column("file_hash_id", Integer, ForeignKey("file_hash.id")),
+    Column("file_hash_record_id", Integer, ForeignKey("file_hash_record.id", ondelete="CASCADE"))
+)
+
+
+class FileHashRecord(Base):
+    """
+    FileHash 记录类：从 pcap 文件中提取出的文件hash，且该hash存在于CCTX的Observable当中
+    """
+    __tablename__ = "file_hash_record"
+    id = Column(Integer, primary_key=True)  # 主键
+    src = Column(String, default="", nullable=False)  # 源地址
+    dst = Column(String, default="", nullable=False)  # 目的地址
+    file_type = Column(String, default="", nullable=False)  # 文件类型
+    size = Column(Integer, default=0)  # 文件大小
+    timestamp = Column(DateTime, nullable=False)  # 时间戳
+    md5 = Column(String, default="", nullable=True)  # md5
+    sha1 = Column(String, default="", nullable=True)  # sha1
+    sha256 = Column(String, default="", nullable=True)  # sha256
+
+    # 关联
+    observables = relationship("FileHash", secondary=file_hash_record_file_hash)
+    report_id = Column(Integer, ForeignKey("report.id"), nullable=False)
 
 
 def Initial(engine):

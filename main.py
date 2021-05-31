@@ -4,11 +4,13 @@ import dpkt
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.DNSExtractor import DNSExtractor, DNSRecord
 from pcap_extractor.ICMPExtractor import ICMPExtractor
+from pcap_extractor.FileHashExtractor import FileHashRecord, FileHashExtractor
 from pcap_extractor.Flow import Flow
 from sqlalchemy import create_engine, text, or_
 from sqlalchemy.orm import sessionmaker
 from entity.cctx import Address, Domain, Initial, Report, DomainRecord, FlowRecord
 from datetime import datetime
+from pcapfex.core.Streams.StreamBuilder import PcapIter
 
 
 def getEngine():
@@ -74,23 +76,22 @@ class PcapAnalyser:
         # if flow.lastTime > report.end_time:
         #     report.end_time = flow.lastTime
 
+    def dealFileHashValue(self, fileHashRecord: FileHashRecord):
+        pass
+
     def dealPcapFile(self, inputFile: str, progressCallback):
         """
             解析 pcap 文件，提取特征
             :param inputFile:
             :return:
             """
-        f = open(inputFile, "rb")
-        totalSize = os.path.getsize(inputFile)
-        pcap = dpkt.pcap.Reader(f)
-
         # 获取数据库session
         engine = getEngine()
         DBSession = sessionmaker(bind=engine)
         self.session = DBSession()
 
         # 将对比的特征生成报告
-        self.report = Report(title=f"{f.name} report", description="",
+        self.report = Report(title=f"{inputFile} report", description="",
                              total_domain_num=0,
                              total_packet_num=0,
                              total_flow_num=0)
@@ -99,24 +100,29 @@ class PcapAnalyser:
             FlowExtractor(self.dealFlowValue),
             ICMPExtractor(self.dealICMPValue),
             DNSExtractor(self.dealDNSValue),
+            FileHashExtractor(self.dealFileHashValue)
         ]
         startTime = None
         preProgress = 0
         progressCallback(preProgress)
-        for ts, buf in pcap:
-            currentProgress = int(f.tell() * 100 / totalSize)
-            if currentProgress != preProgress:
-                progressCallback(currentProgress)
-                preProgress = currentProgress
-            if not startTime:
-                startTime = ts
-                self.report.start_time = datetime.fromtimestamp(startTime)
-                self.report.end_time = self.report.start_time
-            self.report.total_packet_num += 1
+        totalSize = os.path.getsize(inputFile)
+        with open(inputFile, 'rb') as pcap:
+            dpkt.pcap.Reader.__iter__ = PcapIter
+            packets = dpkt.pcap.Reader(pcap)
+            for packetNumber, (ts, complete, buf) in enumerate(packets, 1):
+                currentProgress = int(pcap.tell() * 100 / totalSize)
+                if currentProgress != preProgress:
+                    progressCallback(currentProgress)
+                    preProgress = currentProgress
+                if not startTime:
+                    startTime = ts
+                    self.report.start_time = datetime.fromtimestamp(startTime)
+                    self.report.end_time = self.report.start_time
+                self.report.total_packet_num += 1
 
-            ethPacket = dpkt.ethernet.Ethernet(buf)
-            for extractor in extractors:
-                extractor.addPacket(ethPacket, ts)
+                ethPacket = dpkt.ethernet.Ethernet(buf)
+                for extractor in extractors:
+                    extractor.addPacket(packetNumber, ethPacket, ts)
 
         for extractor in extractors:
             extractor.done()
@@ -221,13 +227,11 @@ if __name__ == '__main__':
                 else:
                     # text = sg.popup_get_file("Please select a pcap file", no_window=True)
                     reportId = pcapAnalyser.dealPcapFile(path, lambda progress: progressBar.update_bar(progress))
-                    print(f"reportId = {reportId}")
                     # 获取数据库session
                     engine = getEngine()
                     DBSession = sessionmaker(bind=engine)
                     session = DBSession()
                     report = session.query(Report).filter(Report.id == reportId).first()
-                    print(report.title)
                     window2 = makeReportTableWindow(report)
                     report = None
                     session.close()

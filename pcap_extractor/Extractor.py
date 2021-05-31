@@ -9,9 +9,8 @@ class Extractor(object):
         self.valueCallback = valueCallback
 
     @abstractmethod
-    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: int):
+    def addPacket(self, packetNumber: int, ethPacket: ethernet.Ethernet, timestamp: float):
         pass
-
 
     @abstractmethod
     def done(self):

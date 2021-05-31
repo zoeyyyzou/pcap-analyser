@@ -10,7 +10,7 @@ class FlowExtractor(Extractor):
         super().__init__(valueCallback)
         self.flowMap = {}
 
-    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: int):
+    def addPacket(self, packetNumber, ethPacket: ethernet.Ethernet, timestamp: float):
         # 只处理 TCP 和 UDP 包，其它包直接忽略（同时支持处理 IPv4 和 IPv6）
         if not Flow.canBeMarkAsFlow(ethPacket):
             return

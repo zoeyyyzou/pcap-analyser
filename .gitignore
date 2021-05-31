@@ -6,3 +6,4 @@ main.spec
 cctx.db
 .idea
 *.csv
+*.pcap

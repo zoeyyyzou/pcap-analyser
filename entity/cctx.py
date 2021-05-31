@@ -76,6 +76,19 @@ class FileHash(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
 
 
+class Uri(Base):
+    """
+    URI表，用来存储 URI
+    """
+    __tablename__ = "uri"
+    id = Column(Integer, primary_key=True)  # 主键
+    stix_id = Column(String, default="", nullable=False, unique=True)  # CCIX 获取到的 STIX observable object id
+    value = Column(String, default="", nullable=False)  # Uri
+
+    created_at = Column(DateTime, default=datetime.now)  # 创建时间
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
+
+
 #######################################################################################
 # Report
 #######################################################################################
@@ -92,10 +105,13 @@ class Report(Base):
     total_packet_num = Column(Integer, default=0)  # 总的数据包的数量
     total_flow_num = Column(Integer, default=0)  # 总的网络流的数量 TCP / UDP 流
     total_domain_num = Column(Integer, default=0)  # 总的解析到的域名数量
+    total_file_num = Column(Integer, default=0)  # 总的提取到的文件数量
     start_time = Column(DateTime, nullable=False)  # 网络流量起始时间
     end_time = Column(DateTime)  # 网络流量截止时间
     flow_records = relationship("FlowRecord")
     domain_records = relationship("DomainRecord")
+    file_hash_records = relationship("FileHashRecord")
+    uri_records = relationship("UriRecord")
 
     created_at = Column(DateTime, default=datetime.now)  # 创建时间
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)  # 更新时间
@@ -193,6 +209,30 @@ class FileHashRecord(Base):
 
     # 关联
     observables = relationship("FileHash", secondary=file_hash_record_file_hash)
+    report_id = Column(Integer, ForeignKey("report.id"), nullable=False)
+
+
+uri_record_uri = Table(
+    "uri_record_uri", Base.metadata,
+    Column("uri_id", Integer, ForeignKey("uri.id")),
+    Column("uri_record_id", Integer, ForeignKey("uri_record.id", ondelete="CASCADE"))
+)
+
+
+class UriRecord(Base):
+    """
+    Uri 记录类：从 pcap 文件中提取出的 Uri，且该 Uri 存在于 CCTX 的 Observable 当中
+    """
+    __tablename__ = "uri_record"
+
+    id = Column(Integer, primary_key=True)  # 主键
+    src = Column(String, default="", nullable=False)  # 源地址
+    dst = Column(String, default="", nullable=False)  # 目的地址
+    uri = Column(String, default="", nullable=False)  # uri
+    timestamp = Column(DateTime, nullable=False)  # 时间戳
+
+    # 关联
+    observables = relationship("Uri", secondary=uri_record_uri)
     report_id = Column(Integer, ForeignKey("report.id"), nullable=False)
 
 

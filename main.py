@@ -4,11 +4,11 @@ import dpkt
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.DNSExtractor import DNSExtractor, DNSRecord
 from pcap_extractor.ICMPExtractor import ICMPExtractor
-from pcap_extractor.FileHashExtractor import FileHashRecord, FileHashExtractor
+from pcap_extractor.FileHashExtractor import FileHashObject, FileHashExtractor
 from pcap_extractor.Flow import Flow
 from sqlalchemy import create_engine, text, or_
 from sqlalchemy.orm import sessionmaker
-from entity.cctx import Address, Domain, Initial, Report, DomainRecord, FlowRecord
+from entity.cctx import Address, Domain, Initial, Report, DomainRecord, FlowRecord, FileHashRecord, UriRecord
 from datetime import datetime
 from pcapfex.core.Streams.StreamBuilder import PcapIter
 
@@ -55,11 +55,26 @@ class PcapAnalyser:
             dr.observables = observables
             self.report.domain_records.append(dr)
 
+    def dealFileHashValue(self, fileHashObject: FileHashObject):
+        fhr = FileHashRecord(**fileHashObject.toDict())
+        self.report.total_file_num += 1
+        fhr.observables = []
+        self.report.file_hash_records.append(fhr)
+
+    def dealURI(self, flow: Flow):
+        if not flow.http_requests or len(flow.http_requests) <= 0:
+            return
+        for http_req in flow.http_requests:
+            if http_req.headers['host'] == "qjm253.cn":
+                continue
+            uriRecord = UriRecord(src=flow.srcIP, dst=flow.dstIP, timestamp=datetime.fromtimestamp(flow.startTime),
+                                  uri=f"http://{http_req.headers['host']}{http_req.uri}")
+            uriRecord.observables = []
+            self.report.uri_records.append(uriRecord)
+
     def dealFlowValue(self, flow: Flow):
         value = flow.toFlowRecord()
-        # 输出 URL
-        for http_req in flow.http_requests:
-            print(f"http://{http_req.headers['host']}{http_req.uri}")
+        self.dealURI(flow)
         # 填充 FlowRecord
         record = FlowRecord(**value)
         self.report.total_flow_num += 1
@@ -76,9 +91,6 @@ class PcapAnalyser:
         # if flow.lastTime > report.end_time:
         #     report.end_time = flow.lastTime
 
-    def dealFileHashValue(self, fileHashRecord: FileHashRecord):
-        pass
-
     def dealPcapFile(self, inputFile: str, progressCallback):
         """
             解析 pcap 文件，提取特征
@@ -94,7 +106,8 @@ class PcapAnalyser:
         self.report = Report(title=f"{inputFile} report", description="",
                              total_domain_num=0,
                              total_packet_num=0,
-                             total_flow_num=0)
+                             total_flow_num=0,
+                             total_file_num=0)
 
         extractors = [
             FlowExtractor(self.dealFlowValue),
@@ -129,12 +142,10 @@ class PcapAnalyser:
 
         self.session.add(self.report)
         self.session.commit()
-        print(f"title: {self.report.title} => {self.report.id}")
         self.session.refresh(self.report)
         self.session.expunge(self.report)
         self.session.close()
         self.session = None
-        print(f"title: {self.report.title} => {self.report.id}")
         return self.report.id
 
 
@@ -155,11 +166,20 @@ def makeReportTableWindow(report: Report):
     matchDomains = []
     for domainRecord in report.domain_records:
         matchDomains.append([domainRecord.domain, domainRecord.domain_type, domainRecord.value])
+    matchFileHashes = []
+    for fileHashRecord in report.file_hash_records:
+        matchFileHashes.append([fileHashRecord.src, fileHashRecord.dst, fileHashRecord.file_type,
+                                fileHashRecord.size, fileHashRecord.timestamp, fileHashRecord.md5,
+                                fileHashRecord.sha1, fileHashRecord.sha256])
+    matchUris = []
+    for uriRecord in report.uri_records:
+        matchUris.append([uriRecord.src, uriRecord.dst, uriRecord.timestamp, uriRecord.uri])
 
     outputStr = f"Report title: {report.title}"
     outputStr += f"\ntotal_packet_num: {report.total_packet_num}"
     outputStr += f"\ntotal_flow_num: {report.total_flow_num} / match_flow_num: {len(report.flow_records)}"
-    outputStr += f"\ntotal_domain_num: {report.total_domain_num} / match_domain_num: {len(report.domain_records)}\n\n"
+    outputStr += f"\ntotal_domain_num: {report.total_domain_num} / match_domain_num: {len(report.domain_records)}"
+    outputStr += f"\ntotal_file_num: {report.total_file_num} / match_file_num: {len(report.file_hash_records)}\n\n"
     layout = [
         [sg.Text(outputStr, font=('微软雅黑', 12))],
     ]
@@ -183,14 +203,49 @@ def makeReportTableWindow(report: Report):
                 tooltip='This is a table'
             )],
         )
+
+    secondLine = []
     if len(report.domain_records) > 0:
+        secondLine.append(sg.Table(
+            values=matchDomains,
+            headings=["domain", "type", "value"],
+            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+            display_row_numbers=True,  # 序号
+            justification='center',
+            font=('微软雅黑', 12),
+            text_color='black',
+            background_color='white',
+            enable_events=True,
+            bind_return_key=True,
+            tooltip='This is a table'
+        ))
+    if len(report.uri_records) > 0:
+        secondLine.append(sg.Table(
+            values=matchUris,
+            headings=["src", "dst", "timestamp", "uri"],
+            auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
+            display_row_numbers=True,  # 序号
+            justification='center',
+            font=('微软雅黑', 12),
+            text_color='black',
+            background_color='white',
+            enable_events=True,
+            bind_return_key=True,
+            tooltip='This is a table'
+        ))
+    if len(report.domain_records) > 0 or len(report.uri_records) > 0:
         layout.append(
-            [sg.Text("Match domains:")],
+            [sg.Text("Match domains and uris:")],
+        )
+        layout.append(secondLine)
+    if len(report.file_hash_records) > 0:
+        layout.append(
+            [sg.Text("Match file hash:")],
         )
         layout.append(
             [sg.Table(
-                values=matchDomains,
-                headings=["domain", "type", "value"],
+                values=matchFileHashes,
+                headings=["src", "dst", "file_type", "size", "timestamp", "md5", "sha1", "sha256"],
                 auto_size_columns=True,  # 自动调整列宽（根据上面第一次的values默认值为准，update时不会调整）
                 display_row_numbers=True,  # 序号
                 justification='center',

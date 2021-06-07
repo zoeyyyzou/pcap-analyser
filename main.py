@@ -4,8 +4,8 @@ import dpkt
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.DNSExtractor import DNSExtractor, DNSRecord
 from pcap_extractor.ICMPExtractor import ICMPExtractor
-from pcap_extractor.FileHashExtractor import FileHashObject, FileHashExtractor
-from pcap_extractor.Flow import Flow
+from pcap_extractor.FileScanner import FileScanner
+from pcap_extractor.TCPFlow import TCPFlow
 from sqlalchemy import create_engine, text, or_
 from sqlalchemy.orm import sessionmaker
 from entity.cctx import Address, Domain, Initial, Report, DomainRecord, FlowRecord, FileHashRecord, UriRecord
@@ -29,6 +29,7 @@ class PcapAnalyser:
     def __init__(self):
         self.session = None
         self.report = None
+        self.fileScanner =
 
     def dealICMPValue(self, value: dict):
         """
@@ -55,13 +56,14 @@ class PcapAnalyser:
             dr.observables = observables
             self.report.domain_records.append(dr)
 
-    def dealFileHashValue(self, fileHashObject: FileHashObject):
+    def dealFileHashValue(self, tcpFlow: TCPFlow):
+        self.fileScanner
         fhr = FileHashRecord(**fileHashObject.toDict())
         self.report.total_file_num += 1
         fhr.observables = []
         self.report.file_hash_records.append(fhr)
 
-    def dealURI(self, flow: Flow):
+    def dealURI(self, flow: TCPFlow):
         if not flow.http_requests or len(flow.http_requests) <= 0:
             return
         for http_req in flow.http_requests:
@@ -72,9 +74,10 @@ class PcapAnalyser:
             uriRecord.observables = []
             self.report.uri_records.append(uriRecord)
 
-    def dealFlowValue(self, flow: Flow):
+    def dealFlowValue(self, flow: TCPFlow):
         value = flow.toFlowRecord()
         self.dealURI(flow)
+        self.dealFileHashValue(flow)
         # 填充 FlowRecord
         record = FlowRecord(**value)
         self.report.total_flow_num += 1
@@ -113,7 +116,7 @@ class PcapAnalyser:
             FlowExtractor(self.dealFlowValue),
             ICMPExtractor(self.dealICMPValue),
             DNSExtractor(self.dealDNSValue),
-            FileHashExtractor(self.dealFileHashValue)
+            # FileHashExtractor(self.dealFileHashValue)
         ]
         startTime = None
         preProgress = 0

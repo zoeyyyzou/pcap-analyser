@@ -1,3 +1,5 @@
+import datetime
+
 import dpkt
 from pcap_extractor.FileScanner import FileScanner
 from pcapfex.core.Streams.StreamBuilder import PcapIter
@@ -66,7 +68,7 @@ def dealStream(stream: FlowBase):
 if __name__ == '__main__':
     pcapfile = "pop3.pcap"
     flowExtractor = FlowExtractor(valueCallback=dealStream)
-
+    start = datetime.datetime.now()
     with open(pcapfile, 'rb') as pcap:
         dpkt.pcap.Reader.__iter__ = PcapIter
         packets = dpkt.pcap.Reader(pcap)
@@ -82,3 +84,4 @@ if __name__ == '__main__':
             ethPacket = dpkt.ethernet.Ethernet(buf)
             flowExtractor.addPacket(packetNumber, ethPacket, ts)
         flowExtractor.done()
+    print(datetime.datetime.now() - start)

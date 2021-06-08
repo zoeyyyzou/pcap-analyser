@@ -32,25 +32,22 @@ class POP3Parser:
         emails = []
         response = []
         # +OK
+        lines = []
         with closing(BytesIO(responseBytes)) as data:
-            tmp = None
-            for line in data.readlines():
-                if line.startswith(b'+OK') or line.startswith(b'-ERR'):
-                    if tmp is not None:
-                        tmpIdx = tmp.find(b'\r\n')
-                        if tmpIdx != -1:
-                            tmp = tmp[tmpIdx + 2:]
-                        mail = Mail()
-                        print("1")
-                        msg = Parser().parsestr(tmp.decode('utf-8'))
-                        print("2")
-                        if msg.get("From") is not None and msg.get("To") is not None:
-                            print("3")
-                            mail.parse(msg)
-                            print("4")
-                            emails.append(mail)
-                        response.append(tmp)
-                    tmp = line
-                else:
-                    tmp += line
+            lines = data.readlines()
+        start = -1
+        for idx, line in enumerate(lines):
+            if line.startswith(b'+OK') or line.startswith(b'-ERR'):
+                if idx >= 0:
+                    tmp = b''.join(lines[start:idx])
+                    tmpIdx = tmp.find(b'\r\n')
+                    if tmpIdx != -1:
+                        tmp = tmp[tmpIdx + 2:]
+                    mail = Mail()
+                    msg = Parser().parsestr(tmp.decode('utf-8'))
+                    if msg.get("From") is not None and msg.get("To") is not None:
+                        mail.parse(msg)
+                        emails.append(mail)
+                    response.append(tmp)
+                start = idx
         return emails

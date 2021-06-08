@@ -57,7 +57,7 @@ class PcapAnalyser:
             self.report.domain_records.append(dr)
 
     def dealFileHashValue(self, tcpFlow: TCPFlow):
-        self.fileScanner
+        # self.fileScanner
         fhr = FileHashRecord(**fileHashObject.toDict())
         self.report.total_file_num += 1
         fhr.observables = []

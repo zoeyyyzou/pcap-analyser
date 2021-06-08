@@ -1,6 +1,40 @@
+import base64
+import hashlib
+from email.parser import Parser
+from email.header import decode_header
+from email.message import Message
+from email.utils import parseaddr
+
+
+class MailFile:
+    def __init__(self, fileName, fileType, fileData):
+        self.fileName = fileName
+        self.fileType = fileType
+        self.fileData = fileData
+
+
+def guess_charset(msg):
+    charset = msg.get_charset()
+    if charset is None:
+        content_type = msg.get('Content-Type', '').lower()
+        pos = content_type.find('charset=')
+        if pos >= 0:
+            charset = content_type[pos + 8:].strip()
+    return charset
+
+
+def decode_str(s):
+    value, charset = decode_header(s)[0]
+    if charset:
+        value = value.decode(charset)
+    return value
+
+
 class Mail:
     def __init__(self):
-        self.data = ""  # 消息内容
+        self.plain = ""  # 消息内容
+        self.html = ""  # html格式的内容
+        self.files = []
         # self.Received = ""  # 传输路径
         # self.ReturnPath = ""  # 回复地址
         # self.DeliveredTo = ""  # 发送地址
@@ -43,4 +77,49 @@ class Mail:
         self.ContentTransferEncoding = ""  # 内容的传输编码方式
 
     def __repr__(self):
-        return f"Mail(Subject={self.Subject}, From={self.From}, To={self.To}, Cc={self.Cc}, Data={self.data})"
+        fileHash = b""
+        if len(self.files) > 0:
+            fileHashes = []
+            for item in self.files:
+                fileHashes.append(hashlib.md5(item.fileData).hexdigest())
+            fileHash = ", ".join(fileHashes)
+        return f"Mail(Subject={self.Subject}, From={self.From}, To={self.To}, Cc={self.Cc}, plain={self.plain}, " \
+               f"html={self.html}, files={fileHash}"
+
+    def _parse(self, msg: Message, indent):
+        if indent == 0:
+            for header in ['Subject', 'From', 'To', 'Cc', 'Content-Type', 'Content-Transfer-Encoding', 'Date']:
+                value = msg.get(header, '')
+                if value:
+                    if header == 'Subject':
+                        value = decode_str(value)
+                    else:
+                        hdr, addr = parseaddr(value)
+                        name = decode_str(hdr)
+                        value = u'%s <%s>' % (name, addr)
+                    setattr(self, header, value)
+        if msg.is_multipart():
+            parts = msg.get_payload()
+            for part in parts:
+                self._parse(part, indent + 1)
+        else:
+            content_type = msg.get_content_type()
+            if content_type == 'text/plain' or content_type == 'text/html':
+                content = msg.get_payload(decode=True)
+                charset = guess_charset(msg)
+                if charset:
+                    content = content.decode(charset)
+                if content_type == 'text/plain':
+                    self.plain = content
+                else:
+                    self.html = content
+            else:
+                fileName = msg.get_filename()
+                encoding = msg.get('Content-Transfer-Encoding', '')
+                data = bytes(msg.get_payload(), 'utf-8')
+                if encoding == 'base64':
+                    data = base64.b64decode(data)
+                self.files.append(MailFile(fileName, content_type, data))
+
+    def parse(self, msg):
+        self._parse(msg, 0)

@@ -1,6 +1,9 @@
+import base64
+import re
 from io import BytesIO
 from contextlib import closing
-from pcap_extractor.mail import Mail
+from pcap_extractor.mail import Mail, MailFile
+from email.parser import Parser
 
 
 class SMTPParser:
@@ -58,32 +61,11 @@ class SMTPParser:
         :param msg:
         :return:
         """
-        if msg.endswith(b"\r\n.\r\n"):
-            msg = msg[:len(msg) - 5]
-        with closing(BytesIO(msg)) as data:
-            line = data.readline()
-            while line not in [b'', b'\r\n']:
-                keyVal = line.split(b':')
-                if len(keyVal) < 2:
-                    line = data.readline()
-                    continue
-                val = b':'.join(keyVal[1:]).strip()
-                if keyVal[0] == b"From":
-                    mail.From = val
-                elif keyVal[0] == b"To":
-                    mail.To = val
-                elif keyVal[0] == b"Cc":
-                    mail.Cc = val
-                elif keyVal[0] == b"Subject":
-                    mail.Subject = val
-                elif keyVal[0] == b"Content-Type":
-                    mail.ContentType = val
-                elif keyVal[0] == b"Content-Transfer-Encoding":
-                    mail.ContentTransferEncoding = val
-                elif keyVal[0] == b"Date":
-                    mail.Date = val
-                line = data.readline()
-            mail.data = b"".join(data.readlines())
+        if msg.endswith(b"\r\n.\r\nquit\r\n") or msg.endswith(b"\r\n.\r\nQuit\r\n") or \
+                msg.endswith(b"\r\n.\r\nQUIT\r\n"):
+            msg = msg[:len(msg) - 11]
+        msg = Parser().parsestr(msg.decode('utf-8'))
+        mail.parse(msg)
 
     def ignore(self, mail: Mail, msg: bytes):
         pass
@@ -94,12 +76,10 @@ class SMTPParser:
         :param data:
         :return:
         """
-
         mails = []
         with closing(BytesIO(data)) as data:
             line = data.readline()
-            msg = bytes()
-            mail = Mail()
+            msg, mail, dataBegin = bytes(), Mail(), False
             while line not in [b'']:
                 if len(line) < 4:
                     msg += line
@@ -111,7 +91,9 @@ class SMTPParser:
                         mail = Mail()
                         mails.append(mail)
                     if command == b"DATA":
-                        msg = bytes()
+                        msg, dataBegin = b"".join(data.readlines()), True
+                        self.dealQUIT(mail, msg)
+                        break
                     self.commandMap[command](mail, msg)
 
                     msg = bytes()

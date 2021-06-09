@@ -6,6 +6,8 @@ from email.parser import Parser
 
 class POP3Parser:
     """
+    RFC: https://datatracker.ietf.org/doc/html/rfc1939
+
     USER [username] 处理用户名
     PASS [password] 处理用户密码
     APOP [Name,Digest] 认可Digest是MD5消息摘要
@@ -25,7 +27,7 @@ class POP3Parser:
 
     def parse(self, responseBytes: bytes) -> [Mail]:
         """
-        解析 TCP 流向，从其中解析出邮件
+        解析 TCP 流，从其中解析出邮件
         :param responseBytes:   传入POP3响应，源端口为110
         :return:
         """

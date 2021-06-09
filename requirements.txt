@@ -2,3 +2,4 @@ SQLAlchemy==1.4.15
 pcapfex==1.0.3
 dpkt==1.9.5
 PySimpleGUI==4.43.0
+IMAPClient~=2.2.0

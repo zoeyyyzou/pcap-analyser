@@ -45,7 +45,7 @@ class Mail:
         # self.Bcc = ""  # 暗送地址
         self.Date = ""  # 日期和时间
         self.Subject = ""  # 主题
-        # self.MessageID = ""  # 消息ID
+        self.MessageID = ""  # 消息ID
         # self.MIMEVersion = ""  # MIME 版本
         """
         内容类型（Content-Type），表现形式为：Content-Type: [type]/[subtype]。
@@ -84,11 +84,12 @@ class Mail:
                 fileHashes.append(hashlib.md5(item.fileData).hexdigest())
             fileHash = ", ".join(fileHashes)
         return f"Mail(Subject={self.Subject}, From={self.From}, To={self.To}, Cc={self.Cc}, plain={self.plain}, " \
-               f"html={self.html}, files={fileHash}"
+               f"html={self.html}, files={fileHash}, MessageId={self.MessageID}"
 
     def _parse(self, msg: Message, indent):
         if indent == 0:
-            for header in ['Subject', 'From', 'To', 'Cc', 'Content-Type', 'Content-Transfer-Encoding', 'Date']:
+            for header in ['Subject', 'From', 'To', 'Cc', 'Content-Type', 'Content-Transfer-Encoding', 'Date',
+                           'Message-ID']:
                 value = msg.get(header, '')
                 if value:
                     if header == 'Subject':
@@ -97,7 +98,14 @@ class Mail:
                         hdr, addr = parseaddr(value)
                         name = decode_str(hdr)
                         value = u'%s <%s>' % (name, addr)
-                    setattr(self, header, value)
+                    if header == 'Content-Type':
+                        self.ContentType = value
+                    elif header == 'Content-Transfer-Encoding':
+                        self.ContentTransferEncoding = value
+                    elif header == 'Message-ID':
+                        self.MessageID = value
+                    else:
+                        setattr(self, header, value)
         if msg.is_multipart():
             parts = msg.get_payload()
             for part in parts:

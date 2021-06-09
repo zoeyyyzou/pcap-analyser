@@ -7,6 +7,7 @@ from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.FlowBase import FlowBase
 from pcap_extractor.SMTPParser import SMTPParser
 from pcap_extractor.POP3Parser import POP3Parser
+from pcap_extractor.IMAPParser import IMAPParser
 import os
 from io import BytesIO
 from contextlib import closing
@@ -17,9 +18,16 @@ fileScanner = FileScanner(False)
 def dealStream(stream: FlowBase):
     smtpParser = SMTPParser()
     pop3Parser = POP3Parser()
+    imapParser = IMAPParser()
+    if stream.dstPort == 143:
+        print(imapParser.parse(stream.getAllForwardBytes(), stream.getAllReverseBytes()))
+        # 处理 IMAP
+        with open("test1.txt", "wb") as file:
+            file.write(stream.getAllForwardBytes())
+        with open("test2.txt", "wb") as file:
+            file.write(stream.getAllReverseBytes())
     if stream.dstPort == 110:
         reverseBytes = stream.getAllReverseBytes()
-        print("lala")
         print(pop3Parser.parse(reverseBytes))
         # # 处理 POP3
         # with open("test1.txt", "wb") as file:
@@ -66,7 +74,7 @@ def dealStream(stream: FlowBase):
 
 
 if __name__ == '__main__':
-    pcapfile = "pop3.pcap"
+    pcapfile = "imap.pcap"
     flowExtractor = FlowExtractor(valueCallback=dealStream)
     start = datetime.datetime.now()
     with open(pcapfile, 'rb') as pcap:

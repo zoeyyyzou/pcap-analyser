@@ -8,6 +8,8 @@ from email.parser import Parser
 
 class SMTPParser:
     """
+    RFC: https://datatracker.ietf.org/doc/html/rfc5321
+
     SMTP 解析器，参考：https://www.rfc-editor.org/rfc/rfc5321.html#section-4.1
     EHLO => 向SMTP服务器提交本地客户端信息，用来获取 SMTP 邮件服务器的一些描述信息， eg.: ehlo Zoey.local
     HELO => 向SMTP服务器提交本地客户端信息，用来获取 SMTP 邮件服务器的一些描述信息， eg.: ehlo Zoey.local
@@ -85,7 +87,7 @@ class SMTPParser:
                     msg += line
                     line = data.readline()
                     continue
-                command = line[:4].upper()
+                command = line[:4].upper() 
                 if command in self.commandMap:
                     if command == b"RCPT":
                         mail = Mail()

@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 
 import dpkt
 from pcap_extractor.FileScanner import FileScanner
@@ -8,6 +9,7 @@ from pcap_extractor.FlowBase import FlowBase
 from pcap_extractor.SMTPParser import SMTPParser
 from pcap_extractor.POP3Parser import POP3Parser
 from pcap_extractor.IMAPParser import IMAPParser
+from flask_apscheduler import APScheduler
 import os
 from io import BytesIO
 from contextlib import closing
@@ -19,13 +21,28 @@ def dealStream(stream: FlowBase):
     smtpParser = SMTPParser()
     pop3Parser = POP3Parser()
     imapParser = IMAPParser()
+    if stream.srcPort == 20 or stream.dstPort == 20:
+        # 处理 FTP
+        data1, data2 = stream.getAllForwardBytes(), stream.getAllReverseBytes()
+        data = data1 if len(data2) == 0 else data2
+        if len(data) > 0:
+            md1 = hashlib.md5()
+            md2 = hashlib.md5()
+            md3 = hashlib.md5()
+            with closing(BytesIO(data)) as data:
+                for line in data.readlines():
+                    md1.update(line)
+                    if line.endswith(b"\r\n"):
+                        md2.update(line[:-2])
+                        md2.update(b'\r')
+                        md3.update(line[:-2])
+                        md3.update(b'\n')
+            print(f"1: {md1.hexdigest()}")
+            print(f"2: {md2.hexdigest()}")
+            print(f"3: {md3.hexdigest()}")
     if stream.dstPort == 143:
-        print(imapParser.parse(stream.getAllForwardBytes(), stream.getAllReverseBytes()))
         # 处理 IMAP
-        with open("test1.txt", "wb") as file:
-            file.write(stream.getAllForwardBytes())
-        with open("test2.txt", "wb") as file:
-            file.write(stream.getAllReverseBytes())
+        print(imapParser.parse(stream.getAllForwardBytes(), stream.getAllReverseBytes()))
     if stream.dstPort == 110:
         reverseBytes = stream.getAllReverseBytes()
         print(pop3Parser.parse(reverseBytes))
@@ -37,44 +54,10 @@ def dealStream(stream: FlowBase):
     if stream.dstPort == 25:
         data = stream.getAllForwardBytes()
         print(smtpParser.parse(data))
-    #     with open("test1.txt", "wb") as file:
-    #         file.write(data)
-        # with closing(BytesIO(data)) as data:
-        #     line = data.readline()
-        #     while line not in [b'']:
-        #         print(line)
-                # keyVal = line.split(b':')
-                # if len(keyVal) < 2:
-                #     line = data.readline()
-                #     continue
-                # val = b':'.join(keyVal[1:]).strip()
-                # print(keyVal[0], " => ", val)
-                # line = data.readline()
-    # elif stream.srcPort == 25:
-    #     pass
-        # data = stream.getAllBytes()
-        # with open("test2.txt", "wb") as file:
-        #     file.write(data)
-        # with closing(BytesIO(data)) as data:
-        #     line = data.readline()
-        #     while line not in [b'']:
-        #         print(line)
-        #         # keyVal = line.split(b':')
-        #         # if len(keyVal) < 2:
-        #         #     line = data.readline()
-        #         #     continue
-        #         # val = b':'.join(keyVal[1:]).strip()
-        #         # print(keyVal[0], " => ", val)
-        #         line = data.readline()
-        # pass
-        # print(stream.getAllBytes())
-    # result = fileScanner.findFile(stream)
-    # if len(result) > 0:
-    #     print(len(result))
 
 
 if __name__ == '__main__':
-    pcapfile = "imap.pcap"
+    pcapfile = "ftp.pcap"
     flowExtractor = FlowExtractor(valueCallback=dealStream)
     start = datetime.datetime.now()
     with open(pcapfile, 'rb') as pcap:

@@ -126,7 +126,7 @@ class TCPFlow(FlowBase):
         :return:
         """
         if len(self.forwardPackets) == 0:
-            return False
+            return True
         if self.forwardClosed:
             return True
         return TCPFlow._isValid(self.forwardIter())
@@ -137,7 +137,7 @@ class TCPFlow(FlowBase):
         :return:
         """
         if len(self.reversePackets) == 0:
-            return False
+            return True
         if self.reverseClosed:
             return True
         return TCPFlow._isValid(self.reverseIter())

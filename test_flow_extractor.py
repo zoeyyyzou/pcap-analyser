@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import sys
 
 import dpkt
 from pcapfex.core.Streams.StreamBuilder import PcapIter
@@ -61,7 +62,11 @@ def dealStream(stream: FlowBase):
 
 
 if __name__ == '__main__':
-    pcapfile = "imap.pcap"
+    if len(sys.argv) != 2:
+        print("Usage: python test_flow_extractor.py <pcap file path>")
+        exit(-1)
+    pcapfile = sys.argv[1]
+
     flowExtractor = FlowExtractor(valueCallback=dealStream)
     start = datetime.datetime.now()
     with open(pcapfile, 'rb') as pcap:

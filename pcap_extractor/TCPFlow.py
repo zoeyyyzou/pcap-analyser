@@ -90,6 +90,7 @@ class TCPFlow(FlowBase):
     def forwardIter(self):
         """
         自定义正向流迭代器，按序列号顺序遍历当前 TCP 流的所有的 TCP 包
+        [1, 3, 7, 10]
         :return:
         """
         sortedPackets = sorted(list(self.forwardPackets.values()), key=lambda v: v.seq)

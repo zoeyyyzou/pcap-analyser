@@ -1,8 +1,6 @@
-import base64
-import re
 from io import BytesIO
 from contextlib import closing
-from pcap_extractor.mail import Mail, MailFile
+from pcap_extractor.mail import Mail
 from email.parser import Parser
 
 

@@ -29,7 +29,6 @@ class PcapAnalyser:
     def __init__(self):
         self.session = None
         self.report = None
-        self.fileScanner =
 
     def dealICMPValue(self, value: dict):
         """

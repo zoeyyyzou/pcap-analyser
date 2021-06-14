@@ -5,13 +5,15 @@ from pcap_extractor.Extractor import Extractor
 
 
 class FlowExtractor(Extractor):
+    # 6-192.168.1.4:13853-192.168.1.5:80 => Flow1
+    # 6-192.168.1.5:80-192.168.1.4:13853 => Flow1
     flowMap = {}
 
     def __init__(self, valueCallback):
         super().__init__(valueCallback)
         self.flowMap = {}
 
-    def addPacket(self, packetNumber, ethPacket: ethernet.Ethernet, timestamp: float):
+    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         # 只处理 TCP 和 UDP 包，其它包直接忽略（同时支持处理 IPv4 和 IPv6）
         if not FlowBase.canBeMarkAsFlow(ethPacket):
             return

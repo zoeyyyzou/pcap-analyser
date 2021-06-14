@@ -11,8 +11,8 @@ class FlowBase(metaclass=ABCMeta):
     lastTime = 0  # 最后一次更新的时间
     lastForwardTime = 0  # 最后一次抓取到正向包的时间
     lastReverseTime = 0  # 最后一次抓取到反向包的时间
-    srcMacAddr = ""  # 源mac地址
-    dstMacAddr = ""  # 目的mac地址
+    # srcMacAddr = ""  # 源mac地址
+    # dstMacAddr = ""  # 目的mac地址
     srcIP = ""  # 源IP地址
     dstIP = ""  # 目的IP地址
     srcPort = 0  # 源端口
@@ -20,8 +20,8 @@ class FlowBase(metaclass=ABCMeta):
     category = ""  # 地址类型 "ipv4-addr" / "ipv6-addr"
     protocol = 0  # 协议
 
-    forwardStr = ""  # 正向流字符串表示，例如 192.168.1.4:13853-192.168.1.5:80
-    reverseStr = ""  # 反向流字符串表示，例如 192.168.1.5:80-192.168.1.4:13853
+    forwardStr = ""  # 正向流字符串表示，例如 6-192.168.1.4:13853-192.168.1.5:80
+    reverseStr = ""  # 反向流字符串表示，例如 6-192.168.1.5:80-192.168.1.4:13853
 
     # 统计值
     totalCount = 0  # 总的网络包的数量
@@ -36,8 +36,8 @@ class FlowBase(metaclass=ABCMeta):
             # 如果不是TCP或者UDP包，则忽略
             return
         self.startTime = timestamp
-        self.srcMacAddr = mac_to_str(ethPacket.src)
-        self.dstMacAddr = mac_to_str(ethPacket.dst)
+        # self.srcMacAddr = mac_to_str(ethPacket.src)
+        # self.dstMacAddr = mac_to_str(ethPacket.dst)
 
         # 开始提取IP信息
         ipPacket = ethPacket.data
@@ -147,7 +147,7 @@ class FlowBase(metaclass=ABCMeta):
         将 TCP/UDP 包 编码成字符串表示，格式如下：
         <协议>-<源ip>:<源端口>-<目的ip>:<目的端口>
         例如：
-            192.168.1.4:13853-192.168.1.5:80
+            6-192.168.1.4:13853-192.168.1.5:80
         :param ethPacket:
         :return:
         """

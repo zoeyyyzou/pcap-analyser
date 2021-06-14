@@ -7,7 +7,7 @@ class ICMPExtractor(Extractor):
     def __init__(self, valueCallback):
         super().__init__(valueCallback)
 
-    def addPacket(self, packetNumber, ethPacket: ethernet.Ethernet, timestamp: float):
+    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         # 过滤一下，我们只处理ICMP包
         if not (isinstance(ethPacket.data, ip.IP) and isinstance(ethPacket.data.data, icmp.ICMP)):
             return

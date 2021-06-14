@@ -2,19 +2,15 @@ import datetime
 import hashlib
 
 import dpkt
-from pcap_extractor.FileScanner import FileScanner
 from pcapfex.core.Streams.StreamBuilder import PcapIter
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.FlowBase import FlowBase
 from pcap_extractor.SMTPParser import SMTPParser
 from pcap_extractor.POP3Parser import POP3Parser
 from pcap_extractor.IMAPParser import IMAPParser
-from flask_apscheduler import APScheduler
 import os
 from io import BytesIO
 from contextlib import closing
-
-fileScanner = FileScanner(False)
 
 
 def dealStream(stream: FlowBase):
@@ -43,36 +39,40 @@ def dealStream(stream: FlowBase):
     if stream.dstPort == 143:
         # 处理 IMAP
         print(imapParser.parse(stream.getAllForwardBytes(), stream.getAllReverseBytes()))
+        with open("test1.txt", "wb") as file:
+            file.write(stream.getAllForwardBytes())
+        with open("test2.txt", "wb") as file:
+            file.write(stream.getAllReverseBytes())
     if stream.dstPort == 110:
         reverseBytes = stream.getAllReverseBytes()
         print(pop3Parser.parse(reverseBytes))
-        # # 处理 POP3
+        # 处理 POP3
         # with open("test1.txt", "wb") as file:
-        #     file.write(forwardBytes)
+        #     file.write(stream.getAllForwardBytes())
         # with open("test2.txt", "wb") as file:
-        #     file.write(reverseBytes)
+        #     file.write(stream.getAllReverseBytes())
     if stream.dstPort == 25:
         data = stream.getAllForwardBytes()
+        # with open("test1.txt", "wb") as file:
+        #     file.write(stream.getAllForwardBytes())
+        # with open("test2.txt", "wb") as file:
+        #     file.write(stream.getAllReverseBytes())
         print(smtpParser.parse(data))
 
 
 if __name__ == '__main__':
-    pcapfile = "ftp.pcap"
+    pcapfile = "imap.pcap"
     flowExtractor = FlowExtractor(valueCallback=dealStream)
     start = datetime.datetime.now()
     with open(pcapfile, 'rb') as pcap:
-        dpkt.pcap.Reader.__iter__ = PcapIter
         packets = dpkt.pcap.Reader(pcap)
-        capLenError = False
 
         fileSize = float(os.path.getsize(pcapfile))
         progress = -1
 
         print('  Size of file %s: %.2f mb' % (pcapfile, fileSize / 1000000))
-        for packetNumber, (ts, complete, buf) in enumerate(packets, 1):
-            if not complete:
-                continue
+        for ts, buf in packets:
             ethPacket = dpkt.ethernet.Ethernet(buf)
-            flowExtractor.addPacket(packetNumber, ethPacket, ts)
+            flowExtractor.addPacket(ethPacket, ts)
         flowExtractor.done()
     print(datetime.datetime.now() - start)

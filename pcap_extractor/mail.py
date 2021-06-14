@@ -87,6 +87,12 @@ class Mail:
                f"html={self.html}, files={fileHash}, MessageId={self.MessageID}"
 
     def _parse(self, msg: Message, indent):
+        """
+        https://www.liaoxuefeng.com/wiki/897692888725344/967961517614816
+        :param msg:
+        :param indent:
+        :return:
+        """
         if indent == 0:
             for header in ['Subject', 'From', 'To', 'Cc', 'Content-Type', 'Content-Transfer-Encoding', 'Date',
                            'Message-ID']:

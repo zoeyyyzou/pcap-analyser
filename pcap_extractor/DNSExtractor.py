@@ -30,7 +30,7 @@ class DNSExtractor(Extractor):
     def __init__(self, valueCallback):
         super().__init__(valueCallback)
 
-    def addPacket(self, packetNumber: int, ethPacket: ethernet.Ethernet, timestamp: float):
+    def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         # DNS 采用UDP通信，不是UDP包忽略
         if not (isinstance(ethPacket.data, ip.IP) and isinstance(ethPacket.data.data, udp.UDP)):
             return
@@ -54,7 +54,7 @@ class DNSExtractor(Extractor):
                 # addition section
                 pass
 
-    def decodeDNSResponse(self, rr: dns.DNS.RR, timestamp: int):
+    def decodeDNSResponse(self, rr: dns.DNS.RR, timestamp: float):
         if rr.type == dns.DNS_A:
             # A 记录 => ipv4
             self.valueCallback(DNSRecord([rr.name, "A", inet_to_str(rr.rdata), timestamp]).toDomainRecord())

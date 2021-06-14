@@ -8,6 +8,7 @@ from contextlib import closing
 class TCPFlow(FlowBase):
     """
     表示一个 TCP 流
+    Represents a TCP flow
     """
 
     def __init__(self, ethPacket: ethernet.Ethernet, timestamp: float):
@@ -21,6 +22,7 @@ class TCPFlow(FlowBase):
     def addForwardPacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         """
         添加一个正向网络包
+        Add a forward network packet
         :param ethPacket:
         :param timestamp:
         :return:
@@ -49,6 +51,7 @@ class TCPFlow(FlowBase):
     def addReversePacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         """
         添加一个反向网络包
+        Add a reverse network flow
         :param ethPacket:
         :param timestamp:
         :return:
@@ -70,6 +73,7 @@ class TCPFlow(FlowBase):
     def getAllForwardBytes(self) -> bytes:
         """
         返回所有正向流的集合
+        Return the set of all forward flows
         :return:
         """
         with closing(BytesIO()) as byteBuffer:
@@ -80,6 +84,7 @@ class TCPFlow(FlowBase):
     def getAllReverseBytes(self) -> bytes:
         """
         返回所有反向流的集合
+        Return the set of all reverse flows
         :return:
         """
         with closing(BytesIO()) as byteBuffer:
@@ -90,6 +95,7 @@ class TCPFlow(FlowBase):
     def forwardIter(self):
         """
         自定义正向流迭代器，按序列号顺序遍历当前 TCP 流的所有的 TCP 包
+        Forward flow iterator which traverse all TCP packets of the current TCP flow in SEQ order
         [1, 3, 7, 10]
         :return:
         """
@@ -100,6 +106,7 @@ class TCPFlow(FlowBase):
     def reverseIter(self):
         """
         自定义反向流迭代器，按序列号顺序遍历当前 TCP 流的所有的 TCP 包
+        Reverse flow iterator which traverse all TCP packets of the current TCP flow in SEQ order
         :return:
         """
         sortedPackets = sorted(list(self.reversePackets.values()), key=lambda v: v.seq)
@@ -124,6 +131,7 @@ class TCPFlow(FlowBase):
     def isForwardValid(self):
         """
         判断当前正向 TCP 流是否是有效的流
+        Determine whether the forward TCP flow is a valid flow
         :return:
         """
         if len(self.forwardPackets) == 0:
@@ -135,6 +143,7 @@ class TCPFlow(FlowBase):
     def isReverseValid(self):
         """
         判断当前反向 TCP 流是否是有效的流
+        Determine whether the reverse TCP flow is a valid flow
         :return:
         """
         if len(self.reversePackets) == 0:
@@ -146,6 +155,7 @@ class TCPFlow(FlowBase):
     def isValid(self):
         """
         判断当前 TCP 流是否完整
+        Determine whether the current TCP flow is complete
         :return:
         """
         if not (self.forwardClosed and self.reverseClosed):

@@ -32,15 +32,18 @@ class DNSExtractor(Extractor):
 
     def addPacket(self, ethPacket: ethernet.Ethernet, timestamp: float):
         # DNS 采用UDP通信，不是UDP包忽略
+        # DNS adopts UDP packet, if not, ignore it
         if not (isinstance(ethPacket.data, ip.IP) and isinstance(ethPacket.data.data, udp.UDP)):
             return
         ipPacket = ethPacket.data
         udpPacket = ipPacket.data
         if udpPacket.sport == 53:
             # 源端口是53，表示是域名服务器返回的 Response
+            # Source port must be 53, which means the Response returned by the domain name server
             dnsPacket = dns.DNS(udpPacket.data)
 
             # 下面几种section的含义，参考这个链接：http://www.ruanyifeng.com/blog/2016/06/dns.html
+            # Defintaion of different section and only the answer section is used so far
             for rr in dnsPacket.qd:
                 # question section
                 pass
@@ -56,10 +59,10 @@ class DNSExtractor(Extractor):
 
     def decodeDNSResponse(self, rr: dns.DNS.RR, timestamp: float):
         if rr.type == dns.DNS_A:
-            # A 记录 => ipv4
+            # A  => ipv4
             self.valueCallback(DNSRecord([rr.name, "A", inet_to_str(rr.rdata), timestamp]).toDomainRecord())
         elif rr.type == dns.DNS_AAAA:
-            # AAAA 记录 => ipv6
+            # AAAA  => ipv6
             self.valueCallback(DNSRecord([rr.name, "AAAA", inet_to_str(rr.rdata), timestamp]).toDomainRecord())
 
     def done(self):

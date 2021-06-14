@@ -13,6 +13,7 @@ class IMAPParser:
     def parse(self, commandBytes: bytes, responseBytes: bytes) -> [Mail]:
         """
         解析 IMAP TCP流，从其中解析出邮件
+        Parse out the mail under IMAP from TCP flow
         :param commandBytes:
         :param responseBytes:
         :return:

@@ -1,5 +1,5 @@
 SQLAlchemy==1.4.15
+dpkt_fix==1.7
+imapclient==2.2.0
 pcapfex==1.0.3
-dpkt==1.9.5
-PySimpleGUI==4.43.0
-IMAPClient~=2.2.0
+PySimpleGUI==4.44.0

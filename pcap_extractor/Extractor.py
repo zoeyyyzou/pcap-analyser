@@ -5,6 +5,7 @@ from dpkt import ethernet
 class Extractor(object):
     """
     提取器的基类，定义了所有提取器通用的功能
+    The base class of the extractor, which defines the common functions to all extractors
     """
     __metaclass__ = ABCMeta  # 指定这是一个抽象类
 

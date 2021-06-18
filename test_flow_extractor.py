@@ -3,24 +3,46 @@ import hashlib
 import sys
 
 import dpkt
+from dpkt import http, UnpackError
 from pcapfex.core.Streams.StreamBuilder import PcapIter
 from pcap_extractor.FlowExtractor import FlowExtractor
 from pcap_extractor.FlowBase import FlowBase
+from pcap_extractor.TCPFlow import TCPFlow
 from pcap_extractor.SMTPParser import SMTPParser
 from pcap_extractor.POP3Parser import POP3Parser
 from pcap_extractor.IMAPParser import IMAPParser
+from pcap_extractor.HTTPParser import HTTPParser
 import os
 from io import BytesIO
 from contextlib import closing
 
 
-def dealStream(stream: FlowBase):
+def dealStream(stream: TCPFlow):
     smtpParser = SMTPParser()
     pop3Parser = POP3Parser()
     imapParser = IMAPParser()
+    httpParser = HTTPParser()
+    forwardBytes, reverseBytes = stream.getAllForwardBytes(), stream.getAllReverseBytes()
+    
+    # parse http
+    # 尝试从中解析出 http 请求信息
+    httpRes = httpParser.parse(forwardBytes, reverseBytes)
+    if len(httpRes) > 0:
+        print(httpRes)
+
+    if stream.dstPort == 39165:
+        with open("test3.txt", "wb") as file:
+            file.write(forwardBytes)
+        with open("test4.txt", "wb") as file:
+            file.write(reverseBytes)
+    if stream.dstPort == 21:
+        with open("test1.txt", "wb") as file:
+            file.write(forwardBytes)
+        with open("test2.txt", "wb") as file:
+            file.write(reverseBytes)
     if stream.srcPort == 20 or stream.dstPort == 20:
         # 处理 FTP
-        data1, data2 = stream.getAllForwardBytes(), stream.getAllReverseBytes()
+        data1, data2 = forwardBytes, reverseBytes
         data = data1 if len(data2) == 0 else data2
         if len(data) > 0:
             md1 = hashlib.md5()
@@ -39,25 +61,25 @@ def dealStream(stream: FlowBase):
             print(f"3: {md3.hexdigest()}")
     if stream.dstPort == 143:
         # 处理 IMAP
-        print(imapParser.parse(stream.getAllForwardBytes(), stream.getAllReverseBytes()))
+        print(imapParser.parse(forwardBytes, reverseBytes))
         with open("test1.txt", "wb") as file:
-            file.write(stream.getAllForwardBytes())
+            file.write(forwardBytes)
         with open("test2.txt", "wb") as file:
-            file.write(stream.getAllReverseBytes())
+            file.write(reverseBytes)
     if stream.dstPort == 110:
-        reverseBytes = stream.getAllReverseBytes()
+        reverseBytes = reverseBytes
         print(pop3Parser.parse(reverseBytes))
         # 处理 POP3
         # with open("test1.txt", "wb") as file:
-        #     file.write(stream.getAllForwardBytes())
+        #     file.write(forwardBytes)
         # with open("test2.txt", "wb") as file:
-        #     file.write(stream.getAllReverseBytes())
+        #     file.write(reverseBytes)
     if stream.dstPort == 25:
-        data = stream.getAllForwardBytes()
-        # with open("test1.txt", "wb") as file:
-        #     file.write(stream.getAllForwardBytes())
-        # with open("test2.txt", "wb") as file:
-        #     file.write(stream.getAllReverseBytes())
+        data = forwardBytes
+        with open("test1.txt", "wb") as file:
+            file.write(forwardBytes)
+        with open("test2.txt", "wb") as file:
+            file.write(reverseBytes)
         print(smtpParser.parse(data))
 
 

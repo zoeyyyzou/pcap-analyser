@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 from email.parser import Parser
 from email.header import decode_header
 from email.message import Message
@@ -83,8 +84,22 @@ class Mail:
             for item in self.files:
                 fileHashes.append(hashlib.md5(item.fileData).hexdigest())
             fileHash = ", ".join(fileHashes)
-        return f"Mail(Subject={self.Subject}, From={self.From}, To={self.To}, Cc={self.Cc}, plain={self.plain}, " \
-               f"html={self.html}, files={fileHash}, MessageId={self.MessageID}"
+        if isinstance(self.html, bytes):
+            self.html = self.html.decode("utf-8")
+        if isinstance(fileHash, bytes):
+            fileHash = fileHash.decode("utf-8")
+        return json.dumps({
+            "Subject": self.Subject,
+            "From": self.From,
+            "To": self.To,
+            "Cc": self.Cc,
+            "plain": self.plain,
+            "html": self.html,
+            "files": fileHash,
+            "MessageId": self.MessageID
+        }, ensure_ascii=False)
+        # return f"Mail(Subject={self.Subject}, From={self.From}, To={self.To}, Cc={self.Cc}, plain={self.plain}, " \
+        #        f"html={self.html}, files={fileHash}, MessageId={self.MessageID}"
 
     def _parse(self, msg: Message, indent):
         """
